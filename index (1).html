@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub MP3 Плеер – Petya-Parodies</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 60%, #020617 100%);
+    }
+    .scroll-thin::-webkit-scrollbar {
+      width: 6px;
+    }
+    .scroll-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scroll-thin::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.6);
+      border-radius: 9999px;
+    }
+    .scroll-thin::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.9);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 antialiased flex items-center justify-center p-4">
+  <div class="w-full max-w-5xl mx-auto">
+    <div class="bg-slate-900/80 border border-slate-700/80 shadow-2xl shadow-slate-900/80 rounded-3xl p-6 md:p-8 backdrop-blur">
+      <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-white flex items-center gap-2">
+            <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 text-lg font-bold">♪</span>
+            GitHub MP3 Плеер
+          </h1>
+          <p class="text-sm text-slate-400 mt-1">
+            Репозиторий: <span class="font-mono text-emerald-300">andreyvikodinov-ui/Petya-Parodies</span>
+          </p>
+          <p class="text-xs text-slate-500 mt-1 max-w-xl">
+            Плеер автоматически находит все MP3-файлы во всех папках репозитория и позволяет проигрывать их прямо из браузера.
+          </p>
+        </div>
+        <div class="flex gap-3 items-center">
+          <button id="reloadBtn" class="inline-flex items-center gap-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-semibold px-4 py-2 transition disabled:opacity-60 disabled:cursor-not-allowed">
+            <span id="reloadIcon" class="inline-block">⟳</span>
+            <span id="reloadText">Загрузить треки</span>
+          </button>
+          <a href="https://github.com/andreyvikodinov-ui/Petya-Parodies" target="_blank" rel="noopener" class="hidden md:inline-flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition">
+            <span class="font-mono text-[11px] bg-slate-800/80 border border-slate-700 rounded-full px-3 py-1">GitHub репозиторий</span>
+          </a>
+        </div>
+      </header>
+
+      <div class="grid md:grid-cols-[minmax(0,2fr),minmax(0,3fr)] gap-6 md:gap-8 items-stretch">
+        <!-- Текущий трек / плеер -->
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-5 flex flex-col justify-between min-h-[260px]">
+          <div>
+            <p class="text-xs uppercase tracking-[0.18em] text-emerald-400 mb-3">Сейчас играет</p>
+            <h2 id="currentTitle" class="text-lg font-semibold text-white truncate mb-1">Трек не выбран</h2>
+            <p id="currentPath" class="text-xs text-slate-500 break-all line-clamp-2">Выберите трек из списка справа, чтобы начать воспроизведение.</p>
+          </div>
+
+          <div class="mt-5">
+            <audio id="audioPlayer" class="w-full" controls preload="none">
+              Ваш браузер не поддерживает аудио.
+            </audio>
+
+            <div class="flex items-center justify-between gap-3 mt-4">
+              <div class="flex items-center gap-2">
+                <button id="prevBtn" class="h-9 w-9 inline-flex items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition" title="Предыдущий трек">
+                  ◀
+                </button>
+                <button id="nextBtn" class="h-9 w-9 inline-flex items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition" title="Следующий трек">
+                  ▶
+                </button>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                <label class="flex items-center gap-1">
+                  <input id="autoNext" type="checkbox" class="rounded border-slate-600 text-emerald-500 bg-slate-900 focus:ring-emerald-500" checked />
+                  <span>Автопереход</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Список треков -->
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-5 flex flex-col min-h-[260px] max-h-[480px]">
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <h2 class="text-sm font-semibold text-slate-100">Список треков</h2>
+            <span id="trackCount" class="text-[11px] text-slate-400 bg-slate-900 border border-slate-700 rounded-full px-2 py-0.5">0 треков</span>
+          </div>
+          <div id="status" class="text-sm text-slate-400 mb-2"></div>
+          <div id="error" class="text-xs text-rose-400 mb-2 hidden"></div>
+          <div id="trackList" class="flex-1 overflow-y-auto scroll-thin space-y-1 text-sm"></div>
+        </section>
+      </div>
+
+      <footer class="mt-6 pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+        <p>
+          Плеер использует только общедоступный GitHub API.
+          <span class="block md:inline">Секретные токены нельзя безопасно встраивать в код страницы, поэтому они здесь не используются.</span>
+        </p>
+        <p class="text-[10px] text-slate-600">Если репозиторий приватный — опубликуйте его или используйте сервер-посредник.</p>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const owner = 'andreyvikodinov-ui';
+    const repo = 'Petya-Parodies';
+
+    const audio = document.getElementById('audioPlayer');
+    const currentTitle = document.getElementById('currentTitle');
+    const currentPath = document.getElementById('currentPath');
+    const trackListEl = document.getElementById('trackList');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const trackCountEl = document.getElementById('trackCount');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const reloadText = document.getElementById('reloadText');
+    const reloadIcon = document.getElementById('reloadIcon');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const autoNext = document.getElementById('autoNext');
+
+    let tracks = [];
+    let currentIndex = -1;
+    let currentBranch = '';
+
+    function setLoading(isLoading, message) {
+      reloadBtn.disabled = isLoading;
+      reloadIcon.textContent = isLoading ? '⏳' : '⟳';
+      reloadText.textContent = isLoading ? (message || 'Загрузка...') : 'Перезагрузить треки';
+    }
+
+    function setStatus(message) {
+      statusEl.textContent = message || '';
+    }
+
+    function setError(message) {
+      if (message) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+      } else {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+      }
+    }
+
+    function updateTrackCount() {
+      const n = tracks.length;
+      let text = n + ' трек';
+      if (n % 10 === 1 && n % 100 !== 11) {
+        text = n + ' трек';
+      } else if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) {
+        text = n + ' трека';
+      } else {
+        text = n + ' треков';
+      }
+      trackCountEl.textContent = n === 0 ? '0 треков' : text;
+    }
+
+    function renderTracks() {
+      trackListEl.innerHTML = '';
+      if (!tracks.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-slate-500';
+        empty.textContent = 'MP3-файлы в репозитории не найдены.';
+        trackListEl.appendChild(empty);
+        updateTrackCount();
+        return;
+      }
+
+      tracks.forEach((track, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full text-left px-3 py-2 rounded-xl border border-transparent hover:border-slate-700 hover:bg-slate-800/70 text-xs flex items-center justify-between gap-2 transition';
+        btn.dataset.index = index;
+
+        const left = document.createElement('div');
+        left.className = 'min-w-0';
+
+        const title = document.createElement('div');
+        title.className = 'font-medium text-slate-100 truncate';
+        title.textContent = track.name;
+
+        const path = document.createElement('div');
+        path.className = 'text-[11px] text-slate-500 truncate';
+        path.textContent = track.path;
+
+        left.appendChild(title);
+        left.appendChild(path);
+
+        const right = document.createElement('div');
+        right.className = 'flex items-center gap-2 flex-shrink-0';
+
+        const badge = document.createElement('span');
+        badge.className = 'text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-400 bg-slate-900/80';
+        badge.textContent = index + 1;
+
+        right.appendChild(badge);
+
+        btn.appendChild(left);
+        btn.appendChild(right);
+
+        btn.addEventListener('click', () => {
+          playTrack(index, true);
+        });
+
+        trackListEl.appendChild(btn);
+      });
+
+      highlightCurrentTrack();
+      updateTrackCount();
+    }
+
+    function highlightCurrentTrack() {
+      const buttons = trackListEl.querySelectorAll('button[data-index]');
+      buttons.forEach(btn => {
+        const idx = Number(btn.dataset.index);
+        if (idx === currentIndex) {
+          btn.classList.add('bg-emerald-500/10', 'border-emerald-500/60');
+        } else {
+          btn.classList.remove('bg-emerald-500/10', 'border-emerald-500/60');
+        }
+      });
+
+      const disabled = tracks.length === 0;
+      prevBtn.disabled = disabled;
+      nextBtn.disabled = disabled;
+    }
+
+    function playTrack(index, autoPlay) {
+      if (index < 0 || index >= tracks.length) return;
+      currentIndex = index;
+      const track = tracks[index];
+
+      currentTitle.textContent = track.name;
+      currentPath.textContent = track.path;
+      audio.src = track.url;
+
+      highlightCurrentTrack();
+
+      if (autoPlay) {
+        audio.play().catch(err => {
+          console.warn('Не уда��ось начать воспроизведение:', err);
+        });
+      }
+    }
+
+    function playNext() {
+      if (!tracks.length) return;
+      const next = currentIndex + 1;
+      if (next < tracks.length) {
+        playTrack(next, true);
+      }
+    }
+
+    function playPrev() {
+      if (!tracks.length) return;
+      const prev = currentIndex - 1;
+      if (prev >= 0) {
+        playTrack(prev, true);
+      }
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url, {
+        headers: {
+          'Accept': 'application/vnd.github+json'
+        }
+      });
+      if (!res.ok) {
+        let extra = '';
+        if (res.status === 404) extra = ' (репозиторий или ветка не найдены)';
+        if (res.status === 403) extra = ' (возможно, превышен лимит GitHub API или репозиторий приватный)';
+        throw new Error('Ошибка GitHub API: ' + res.status + ' ' + res.statusText + extra);
+      }
+      return res.json();
+    }
+
+    async function detectDefaultBranch() {
+      const data = await fetchJson(`https://api.github.com/repos/${owner}/${repo}`);
+      return data.default_branch || 'main';
+    }
+
+    async function fetchMp3Tree(branch) {
+      // Git Trees API с recursive=1 возвращает все файлы
+      const treeData = await fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+      if (!treeData.tree) return [];
+      return treeData.tree
+        .filter(item => item.type === 'blob' && item.path.toLowerCase().endsWith('.mp3'))
+        .map(item => ({
+          path: item.path,
+          name: item.path.split('/').pop(),
+          url: `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${item.path.split('/').map(encodeURIComponent).join('/')}`
+        }));
+    }
+
+    async function loadTracks() {
+      setLoading(true, 'Поиск треков...');
+      setStatus('Подключение к GitHub API...');
+      setError('');
+      trackListEl.innerHTML = '';
+      tracks = [];
+      updateTrackCount();
+
+      try {
+        const branch = await detectDefaultBranch();
+        currentBranch = branch;
+        setStatus('Определена ветка по умолчанию: ' + branch + '. Поиск MP3-файлов...');
+
+        const mp3Files = await fetchMp3Tree(branch);
+        tracks = mp3Files.sort((a, b) => a.path.localeCompare(b.path, 'ru'));
+
+        if (!tracks.length) {
+          setStatus('Поиск завершён: MP3-файлы не найдены.');
+        } else {
+          setStatus('Найдено ' + tracks.length + ' MP3-файлов. Выберите трек из списка.');
+        }
+
+        renderTracks();
+
+        if (tracks.length && currentIndex === -1) {
+          playTrack(0, false);
+        }
+      } catch (err) {
+        console.error(err);
+        setError(err.message || String(err));
+        setStatus('Не удалось получить список треков.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // События управления
+    reloadBtn.addEventListener('click', () => {
+      loadTracks();
+    });
+
+    prevBtn.addEventListener('click', () => {
+      playPrev();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      playNext();
+    });
+
+    audio.addEventListener('ended', () => {
+      if (autoNext.checked) {
+        playNext();
+      }
+    });
+
+    // Автоматически загружаем треки при первом открытии страницы
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTracks();
+    });
+  </script>
+</body>
+</html>
